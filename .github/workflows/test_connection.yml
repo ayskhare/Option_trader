@@ -20,7 +20,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          
+      - name: Check secrets
+        env:
+          ANGEL_API_KEY: ${{ secrets.ANGEL_API_KEY }}
+          ANGEL_CLIENT_ID: ${{ secrets.ANGEL_CLIENT_ID }}
+          ANGEL_PASSWORD: ${{ secrets.ANGEL_PASSWORD }}
+          ANGEL_TOTP_KEY: ${{ secrets.ANGEL_TOTP_KEY }}
+        run: |
+          python - <<'PY'
+          import os
 
+          print("ANGEL_API_KEY exists:", bool(os.getenv("ANGEL_API_KEY")))
+          print("ANGEL_CLIENT_ID exists:", bool(os.getenv("ANGEL_CLIENT_ID")))
+          print("ANGEL_PASSWORD exists:", bool(os.getenv("ANGEL_PASSWORD")))
+          print("ANGEL_TOTP_KEY exists:", bool(os.getenv("ANGEL_TOTP_KEY")))
+          PY
+          
       - name: Run connection
         env:
           ANGEL_API_KEY: ${{ secrets.ANGEL_API_KEY }}
