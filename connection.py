@@ -10,9 +10,6 @@ import os
 import pyotp
 import logging
 from datetime import datetime
-from dotenv import load_dotenv
-
-load_dotenv()
 
 try:
     from SmartApi import SmartConnect
