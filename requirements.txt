@@ -3,3 +3,4 @@ smartapi-python
 pyotp
 python-dotenv
 logzero
+websocket-client
