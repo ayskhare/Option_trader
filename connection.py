@@ -35,15 +35,28 @@ def _login() -> SmartConnect:
     """Create a new SmartConnect session and return it."""
     global _smart_api, _last_login
 
-    api_key   = os.getenv("ANGEL_API_KEY")
-    client_id = os.getenv("ANGEL_CLIENT_ID")
-    password  = os.getenv("ANGEL_PASSWORD")
-    totp_key  = os.getenv("ANGEL_TOTP_KEY")
-
-    if not all([api_key, client_id, password, totp_key]):
+    api_key = os.environ.get("ANGEL_API_KEY")
+    client_id = os.environ.get("ANGEL_CLIENT_ID")
+    password = os.environ.get("ANGEL_PASSWORD")
+    totp_key = os.environ.get("ANGEL_TOTP_KEY")
+    
+    missing = []
+    
+    if not api_key:
+        missing.append("ANGEL_API_KEY")
+    
+    if not client_id:
+        missing.append("ANGEL_CLIENT_ID")
+    
+    if not password:
+        missing.append("ANGEL_PASSWORD")
+    
+    if not totp_key:
+        missing.append("ANGEL_TOTP_KEY")
+    
+    if missing:
         raise ValueError(
-            "Missing credentials. Fill in .env file:\n"
-            "  ANGEL_API_KEY, ANGEL_CLIENT_ID, ANGEL_PASSWORD, ANGEL_TOTP_KEY"
+            f"Missing credentials: {', '.join(missing)}"
         )
 
     totp = pyotp.TOTP(totp_key).now()
