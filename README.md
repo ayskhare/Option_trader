@@ -1,35 +1,47 @@
-# NIFTY Option Trader
+# 📊 NIFTY Option Trader
 
-A data-driven project to build a market direction prediction system for the Indian NIFTY market and eventually use the prediction to support systematic option-selling strategies.
+A data-driven research and automation project for analysing the Indian equity market and eventually supporting systematic option-selling strategies.
 
-## Project Goal
+The project is being built as a modular system that collects market data, maintains historical datasets, generates market signals, and will eventually support strategy selection and execution.
 
-The objective is to generate a market signal at the end of Monday and use it to guide option strategy selection and execution from Tuesday to Friday.
+---
 
-The model will classify the expected market movement into:
+# 🎯 Project Goal
 
-- Extreme Bullish
-- Bullish
-- Sideways
-- Bearish
-- Extreme Bearish
-- Undeterministic
+The primary objective is to develop a market direction prediction system for the Indian NIFTY market.
 
-The prediction focuses on the market's first meaningful movement after entry. A favourable move that occurs early in the Tuesday–Friday holding period can be considered successful even if the market later reverses.
+The model will eventually analyse available market data and generate a directional classification before the trading period.
 
-The trading framework is:
+The planned market classifications are:
+
+- 🟢 Extreme Bullish
+- 🟢 Bullish
+- 🟡 Sideways
+- 🔴 Bearish
+- 🔴 Extreme Bearish
+- ⚪ Undeterministic
+
+The resulting signal will eventually be used to support systematic option-selling strategy selection.
+
+---
+
+# 🗓 Planned Trading Framework
+
+The initial trading framework is based around a weekly cycle:
 
 ```text
 Monday Close
-     ↓
+      ↓
 Market data updated
-     ↓
+      ↓
+Historical features calculated
+      ↓
 Model generates market signal
-     ↓
+      ↓
 Tuesday Entry
-     ↓
-Position monitored during the week
-     ↓
-Exit on profit target / stop-loss
-     ↓
+      ↓
+Position monitored
+      ↓
+Profit target / Stop-loss management
+      ↓
 Friday mandatory exit
