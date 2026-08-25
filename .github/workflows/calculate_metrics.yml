@@ -3,6 +3,9 @@ name: Calculate Derived Metrics
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
 
   calculate-metrics:
