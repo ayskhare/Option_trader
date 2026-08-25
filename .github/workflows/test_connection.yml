@@ -38,7 +38,7 @@ jobs:
           ANGEL_API_KEY: ${{ secrets.ANGEL_API_KEY }}
           ANGEL_CLIENT_ID: ${{ secrets.ANGEL_CLIENT_ID }}
           ANGEL_PASSWORD: ${{ secrets.ANGEL_PASSWORD }}
-          ANGEL_TOTP_KEY: ${{ secrets.ANGEL_TOTP_SECRET }}
+          ANGEL_TOTP_KEY: ${{ secrets.ANGEL_TOTP_KEY }}
         run: |
           echo "=== Variables immediately before connection.py ==="
           echo "ANGEL_API_KEY: $ANGEL_API_KEY"
