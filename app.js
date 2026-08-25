@@ -1,3 +1,8 @@
+const calculateMetricsBtn =
+    document.getElementById(
+        "calculateMetricsBtn"
+    );
+
 const updateDataBtn =
     document.getElementById(
         "updateDataBtn"
