@@ -31,6 +31,12 @@ DATA_FOLDER = "data"
 BACKUP_FOLDER = os.path.join(DATA_FOLDER, "backup")
 
 os.makedirs(DATA_FOLDER, exist_ok=True)
+
+
+print("BACKUP_FOLDER:", BACKUP_FOLDER)
+print("Exists:", os.path.exists(BACKUP_FOLDER))
+print("Is directory:", os.path.isdir(BACKUP_FOLDER))
+print("Is file:", os.path.isfile(BACKUP_FOLDER))
 os.makedirs(BACKUP_FOLDER, exist_ok=True)
 
 
