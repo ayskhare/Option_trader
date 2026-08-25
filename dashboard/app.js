@@ -66,7 +66,7 @@ updateDataBtn.addEventListener("click", async () => {
     try {
 
         await triggerGitHubWorkflow(
-            "update-data.yml"
+            "uupdate_historical.yml"
         );
 
         activityMessage.textContent =
