@@ -40,4 +40,9 @@ jobs:
           ANGEL_PASSWORD: ${{ secrets.ANGEL_PASSWORD }}
           ANGEL_TOTP_KEY: ${{ secrets.ANGEL_TOTP_SECRET }}
         run: |
+          echo "=== Variables immediately before connection.py ==="
+          echo "ANGEL_API_KEY: $ANGEL_API_KEY"
+          echo "ANGEL_CLIENT_ID: $ANGEL_CLIENT_ID"
+          echo "ANGEL_PASSWORD: $ANGEL_PASSWORD"
+          echo "ANGEL_TOTP_KEY: $ANGEL_TOTP_KEY"
           python connection.py
