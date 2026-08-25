@@ -40,7 +40,10 @@ const WORKFLOWS = {
         "update_historical.yml",
 
     connection:
-        "test_connection.yml"
+        "test_connection.yml",
+
+    metrics:
+        "calculate_metrics.yml"
 
 };
 
@@ -363,6 +366,35 @@ testConnectionBtn.addEventListener(
     }
 );
 
+calculateMetricsBtn.addEventListener(
+    "click",
+    async () => {
+
+        calculateMetricsBtn.disabled = true;
+
+        updateDataBtn.disabled = true;
+
+        testConnectionBtn.disabled = true;
+
+        try {
+
+            await triggerWorkflow(
+                WORKFLOWS.metrics,
+                "Calculating Derived Metrics"
+            );
+
+        } finally {
+
+            calculateMetricsBtn.disabled = false;
+
+            updateDataBtn.disabled = false;
+
+            testConnectionBtn.disabled = false;
+
+        }
+
+    }
+);
 
 /* ────────────────────────────────────────────
    LOAD LATEST CSV DATES
