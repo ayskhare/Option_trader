@@ -14,7 +14,7 @@ from datetime import datetime
 try:
     from SmartApi import SmartConnect
 except ImportError:
-    raise ImportError("Run: pip install smartapi-python pyotp python-dotenv")
+    raise ImportError("Run: pip install smartapi-python pyotp")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
