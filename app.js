@@ -372,7 +372,7 @@ async function loadLatestDate(
 
         const response =
             await fetch(
-                `../data/${file}?t=${Date.now()}`
+                `data/${file}?t=${Date.now()}`
             );
 
         if (!response.ok) {
