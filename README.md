@@ -720,9 +720,6 @@ Market Data
 CSV Files
     ↓
 Historical Data Storage
-```
-
-This architecture provides a secure and scalable foundation for building the complete Option Trader system.
 
 ```
 ```
