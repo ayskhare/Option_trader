@@ -1,7 +1,19 @@
 exports.handler = async function (event) {
   try {
+    const { workflow } = JSON.parse(event.body || "{}");
+
+    if (!workflow) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          success: false,
+          error: "Workflow name is required"
+        })
+      };
+    }
+
     const response = await fetch(
-      `https://api.github.com/repos/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/actions/workflows/${process.env.GITHUB_WORKFLOW}/dispatches`,
+      `https://api.github.com/repos/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/actions/workflows/${workflow}/dispatches`,
       {
         method: "POST",
         headers: {
@@ -23,7 +35,10 @@ exports.handler = async function (event) {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true })
+      body: JSON.stringify({
+        success: true,
+        workflow: workflow
+      })
     };
 
   } catch (error) {
