@@ -1,19 +1,21 @@
 # download_historical.py
 # ─────────────────────────────────────────────
 # Incrementally updates daily OHLC data for:
+#
 #   - Nifty 50
 #   - Bank Nifty
 #   - Nifty Midcap 50
 #   - India VIX
 #
 # For each instrument:
-#   1. Reads existing CSV
-#   2. Finds the latest saved date
-#   3. Creates a dated backup in data/backup/
-#   4. Fetches only missing data
-#   5. Appends new data
-#   6. Removes duplicates
-#   7. Saves back to the original CSV
+#
+#   1. Read existing CSV
+#   2. Find latest saved date
+#   3. Fetch only missing data
+#   4. Create backup before modifying the CSV
+#   5. Append new data
+#   6. Remove duplicates
+#   7. Save updated CSV
 # ─────────────────────────────────────────────
 
 import os
@@ -25,16 +27,27 @@ from datetime import datetime, timedelta
 from connection import get_connection
 
 
-# ── Folders ───────────────────────────────────
+# ─────────────────────────────────────────────
+# FOLDERS
+# ─────────────────────────────────────────────
 
 DATA_FOLDER = "data"
 BACKUP_FOLDER = os.path.join(DATA_FOLDER, "backup")
 
 os.makedirs(DATA_FOLDER, exist_ok=True)
+
+if os.path.exists(BACKUP_FOLDER) and not os.path.isdir(BACKUP_FOLDER):
+    raise RuntimeError(
+        f"'{BACKUP_FOLDER}' exists but is a file. "
+        "Delete or rename it and create a folder instead."
+    )
+
 os.makedirs(BACKUP_FOLDER, exist_ok=True)
 
 
-# ── Instruments ───────────────────────────────
+# ─────────────────────────────────────────────
+# INSTRUMENTS
+# ─────────────────────────────────────────────
 
 INSTRUMENTS = [
     {
@@ -68,24 +81,27 @@ INSTRUMENTS = [
 ]
 
 
-# ── Fetch settings ────────────────────────────
+# ─────────────────────────────────────────────
+# SETTINGS
+# ─────────────────────────────────────────────
 
-# Used only if an original CSV does not exist
 INITIAL_FROM_DATE = datetime(2021, 1, 1)
 
-TO_DATE = datetime.now()
-
-# AngelOne daily candle limit
 CHUNK_DAYS = 365
 
+RATE_LIMIT_DELAY = 0.5
+
+
+# ─────────────────────────────────────────────
+# FETCH ONE CHUNK
+# ─────────────────────────────────────────────
 
 def fetch_daily_chunk(
     api,
-    instrument: dict,
-    from_dt: datetime,
-    to_dt: datetime
-) -> pd.DataFrame:
-    """Fetch one chunk of daily OHLC data."""
+    instrument,
+    from_dt,
+    to_dt
+):
 
     params = {
         "exchange": instrument["exchange"],
@@ -96,88 +112,91 @@ def fetch_daily_chunk(
     }
 
     try:
-        resp = api.getCandleData(params)
 
-        if resp and resp.get("status") is True:
+        response = api.getCandleData(params)
 
-            raw = resp.get("data", [])
-
-            if not raw:
-                return pd.DataFrame()
-
-            df = pd.DataFrame(
-                raw,
-                columns=[
-                    "datetime",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume"
-                ]
-            )
-
-            df["datetime"] = (
-                pd.to_datetime(df["datetime"])
-                .dt.tz_localize(None)
-            )
-
-            for col in [
-                "open",
-                "high",
-                "low",
-                "close",
-                "volume"
-            ]:
-                df[col] = pd.to_numeric(
-                    df[col],
-                    errors="coerce"
-                )
-
-            df.dropna(inplace=True)
-
-            df.sort_values(
-                "datetime",
-                inplace=True
-            )
-
-            df.reset_index(
-                drop=True,
-                inplace=True
-            )
-
-            return df
-
-        else:
+        if not response or response.get("status") is not True:
 
             message = (
-                resp.get("message", "Unknown")
-                if resp
-                else "No response"
+                response.get("message", "Unknown API error")
+                if response
+                else "No response from API"
             )
 
             print(f"    API error: {message}")
 
             return pd.DataFrame()
 
-    except Exception as e:
+        raw_data = response.get("data", [])
 
-        print(f"    Exception: {e}")
+        if not raw_data:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(
+            raw_data,
+            columns=[
+                "datetime",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+            ],
+        )
+
+        df["datetime"] = pd.to_datetime(
+            df["datetime"]
+        ).dt.tz_localize(None)
+
+        for column in [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+        ]:
+
+            df[column] = pd.to_numeric(
+                df[column],
+                errors="coerce",
+            )
+
+        df.dropna(inplace=True)
+
+        df.drop_duplicates(
+            subset=["datetime"],
+            inplace=True,
+        )
+
+        df.sort_values(
+            "datetime",
+            inplace=True,
+        )
+
+        df.reset_index(
+            drop=True,
+            inplace=True,
+        )
+
+        return df
+
+    except Exception as error:
+
+        print(f"    Exception: {error}")
 
         return pd.DataFrame()
 
 
+# ─────────────────────────────────────────────
+# FETCH DATE RANGE
+# ─────────────────────────────────────────────
+
 def fetch_data(
     api,
-    instrument: dict,
-    from_date: datetime,
-    to_date: datetime
-) -> pd.DataFrame:
-    """
-    Fetch data between two dates.
-
-    Automatically splits long periods into chunks.
-    """
+    instrument,
+    from_date,
+    to_date,
+):
 
     all_chunks = []
 
@@ -187,89 +206,82 @@ def fetch_data(
 
         current_to = min(
             current_from + timedelta(days=CHUNK_DAYS),
-            to_date
+            to_date,
         )
 
         print(
             f"  Fetching "
             f"{current_from.strftime('%Y-%m-%d')} "
             f"→ "
-            f"{current_to.strftime('%Y-%m-%d')}",
-            end=" "
+            f"{current_to.strftime('%Y-%m-%d')}"
         )
 
         chunk = fetch_daily_chunk(
             api,
             instrument,
             current_from,
-            current_to
+            current_to,
         )
 
-        if not chunk.empty:
+        if chunk.empty:
+
+            print("    No candles received.")
+
+        else:
 
             all_chunks.append(chunk)
 
             print(
-                f"→ {len(chunk)} candles ✅"
+                f"    Received {len(chunk)} candles ✅"
             )
 
-        else:
+        current_from = current_to + timedelta(days=1)
 
-            print("→ No data")
-
-        current_from = (
-            current_to
-            + timedelta(days=1)
-        )
-
-        time.sleep(0.5)
+        time.sleep(RATE_LIMIT_DELAY)
 
     if not all_chunks:
-
         return pd.DataFrame()
 
     df = pd.concat(
         all_chunks,
-        ignore_index=True
+        ignore_index=True,
     )
 
     df.drop_duplicates(
         subset=["datetime"],
-        inplace=True
+        keep="last",
+        inplace=True,
     )
 
     df.sort_values(
         "datetime",
-        inplace=True
+        inplace=True,
     )
 
     df.reset_index(
         drop=True,
-        inplace=True
+        inplace=True,
     )
 
     return df
 
 
-def create_backup(
-    file_path: str,
-    last_date: datetime
-):
-    """
-    Copy the existing CSV into data/backup/
-    using the last available date.
+# ─────────────────────────────────────────────
+# CREATE BACKUP
+# ─────────────────────────────────────────────
 
-    Example:
-    nifty50_daily.csv
-    →
-    data/backup/nifty50_daily_24aug.csv
-    """
+def create_backup(
+    file_path,
+    last_datetime,
+):
 
     filename = os.path.basename(file_path)
 
     name, extension = os.path.splitext(filename)
 
-    date_suffix = last_date.strftime("%d%b%Y").lower()
+    date_suffix = last_datetime.strftime(
+        "%d%b%Y"
+    ).lower()
 
     backup_filename = (
         f"{name}_{date_suffix}{extension}"
@@ -277,211 +289,218 @@ def create_backup(
 
     backup_path = os.path.join(
         BACKUP_FOLDER,
-        backup_filename
+        backup_filename,
     )
 
     shutil.copy2(
         file_path,
-        backup_path
+        backup_path,
     )
 
     print(
-        f"  Backup created → {backup_path}"
+        f"  Backup created: {backup_path}"
     )
 
     return backup_path
 
 
-def update_instrument(
-    api,
-    instrument: dict
-):
+# ─────────────────────────────────────────────
+# READ EXISTING DATA
+# ─────────────────────────────────────────────
 
-    print("\n" + "=" * 55)
+def read_existing_data(file_path):
 
-    print(
-        f"Updating: {instrument['name']}"
+    if not os.path.exists(file_path):
+
+        print("  Existing file: Not found")
+
+        return pd.DataFrame()
+
+    existing_df = pd.read_csv(file_path)
+
+    if existing_df.empty:
+
+        print("  Existing file: Empty")
+
+        return pd.DataFrame()
+
+    existing_df["datetime"] = pd.to_datetime(
+        existing_df["datetime"]
+    ).dt.tz_localize(None)
+
+    existing_df.drop_duplicates(
+        subset=["datetime"],
+        keep="last",
+        inplace=True,
     )
 
-    print("=" * 55)
+    existing_df.sort_values(
+        "datetime",
+        inplace=True,
+    )
+
+    existing_df.reset_index(
+        drop=True,
+        inplace=True,
+    )
+
+    return existing_df
+
+
+# ─────────────────────────────────────────────
+# UPDATE ONE INSTRUMENT
+# ─────────────────────────────────────────────
+
+def update_instrument(
+    api,
+    instrument,
+):
+
+    print()
+    print("=" * 60)
+    print(f"UPDATING: {instrument['name']}")
+    print("=" * 60)
 
     file_path = instrument["file"]
 
+    existing_df = read_existing_data(file_path)
 
-    # ── CASE 1: Existing file ─────────────────
+    # ── Existing file ─────────────────────────
 
-    if os.path.exists(file_path):
+    if not existing_df.empty:
 
-        existing_df = pd.read_csv(
-            file_path
+        last_datetime = existing_df["datetime"].max()
+
+        print(
+            "  Latest saved date: "
+            f"{last_datetime.strftime('%Y-%m-%d')}"
         )
 
-        if existing_df.empty:
+        from_date = (
+            last_datetime + timedelta(days=1)
+        )
 
-            print(
-                "  Existing file is empty."
-            )
-
-            from_date = INITIAL_FROM_DATE
-
-        else:
-
-            existing_df["datetime"] = (
-                pd.to_datetime(
-                    existing_df["datetime"]
-                )
-                .dt.tz_localize(None)
-            )
-
-            last_datetime = (
-                existing_df["datetime"].max()
-            )
-
-            print(
-                f"  Latest saved date: "
-                f"{last_datetime.strftime('%Y-%m-%d')}"
-            )
-
-            # ── Create backup ───────────────────
-
-            create_backup(
-                file_path,
-                last_datetime
-            )
-
-            # Fetch only after latest date
-
-            from_date = (
-                last_datetime
-                + timedelta(days=1)
-            )
-
-
-    # ── CASE 2: File doesn't exist ─────────────
+    # ── New file ──────────────────────────────
 
     else:
 
-        print(
-            "  No existing file found."
-        )
-
-        print(
-            f"  Starting from "
-            f"{INITIAL_FROM_DATE.strftime('%Y-%m-%d')}"
-        )
-
-        existing_df = pd.DataFrame()
+        last_datetime = None
 
         from_date = INITIAL_FROM_DATE
 
-
-    # ── Check if update required ───────────────
+        print(
+            "  Starting from: "
+            f"{from_date.strftime('%Y-%m-%d')}"
+        )
 
     to_date = datetime.now()
 
+    # ── Already ahead ─────────────────────────
+
     if from_date.date() > to_date.date():
 
-        print(
-            "  Already up to date ✅"
-        )
+        print("  Already up to date ✅")
 
         return {
             "instrument": instrument["name"],
             "status": "Already up to date",
             "added": 0,
-            "latest": last_datetime.strftime(
-                "%Y-%m-%d"
+            "latest": (
+                last_datetime.strftime("%Y-%m-%d")
+                if last_datetime
+                else "—"
             ),
         }
 
-
     print(
-        f"  Updating range: "
+        "  Update range: "
         f"{from_date.strftime('%Y-%m-%d')} "
-        f"→ "
+        "→ "
         f"{to_date.strftime('%Y-%m-%d')}"
     )
 
-
-    # ── Fetch new data ─────────────────────────
+    # ── Fetch new data ────────────────────────
 
     new_df = fetch_data(
         api,
         instrument,
         from_date,
-        to_date
+        to_date,
     )
 
-
-    # ── No new data ────────────────────────────
+    # ── No new data ───────────────────────────
 
     if new_df.empty:
 
-        print(
-            "  No new candles received."
-        )
+        print("  No new data received.")
 
         return {
             "instrument": instrument["name"],
             "status": "No new data",
             "added": 0,
             "latest": (
-                existing_df["datetime"]
-                .max()
-                .strftime("%Y-%m-%d")
-                if not existing_df.empty
+                last_datetime.strftime("%Y-%m-%d")
+                if last_datetime
                 else "—"
             ),
         }
 
+    # ── Backup only when modification happens ─
 
-    # ── Append old + new data ──────────────────
+    if (
+        not existing_df.empty
+        and last_datetime is not None
+    ):
+
+        create_backup(
+            file_path,
+            last_datetime,
+        )
+
+    # ── Combine data ──────────────────────────
 
     updated_df = pd.concat(
         [
             existing_df,
-            new_df
+            new_df,
         ],
-        ignore_index=True
+        ignore_index=True,
     )
 
-
-    # ── Clean duplicates ───────────────────────
-
-    updated_df["datetime"] = (
-        pd.to_datetime(
-            updated_df["datetime"]
-        )
-        .dt.tz_localize(None)
-    )
+    updated_df["datetime"] = pd.to_datetime(
+        updated_df["datetime"]
+    ).dt.tz_localize(None)
 
     updated_df.drop_duplicates(
         subset=["datetime"],
         keep="last",
-        inplace=True
+        inplace=True,
     )
 
     updated_df.sort_values(
         "datetime",
-        inplace=True
+        inplace=True,
     )
 
     updated_df.reset_index(
         drop=True,
-        inplace=True
+        inplace=True,
     )
 
-
-    # ── Save original file ─────────────────────
+    # ── Save ──────────────────────────────────
 
     updated_df.to_csv(
         file_path,
-        index=False
+        index=False,
     )
 
+    latest_date = updated_df[
+        "datetime"
+    ].iloc[-1].strftime("%Y-%m-%d")
 
+    print()
     print(
-        f"\n  Added: {len(new_df)} candles"
+        f"  New candles added: {len(new_df)}"
     )
 
     print(
@@ -489,53 +508,46 @@ def update_instrument(
     )
 
     print(
-        f"  Latest date: "
-        f"{updated_df['datetime'].iloc[-1].strftime('%Y-%m-%d')}"
+        f"  Latest available date: {latest_date}"
     )
 
     print(
-        f"  Saved → {file_path} ✅"
+        f"  Saved: {file_path} ✅"
     )
-
 
     return {
         "instrument": instrument["name"],
         "status": "Updated",
         "added": len(new_df),
-        "latest": (
-            updated_df["datetime"]
-            .iloc[-1]
-            .strftime("%Y-%m-%d")
-        ),
+        "latest": latest_date,
     }
 
 
+# ─────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────
+
 def main():
 
-    print("\n" + "=" * 55)
+    started_at = datetime.now()
+
+    print()
+    print("=" * 60)
+    print("NIFTY HISTORICAL DATA UPDATER")
+    print("=" * 60)
 
     print(
-        "NIFTY HISTORICAL DATA UPDATER"
+        "Started: "
+        f"{started_at.strftime('%d %b %Y %H:%M:%S')}"
     )
 
-    print(
-        f"Run time: "
-        f"{datetime.now().strftime('%d %b %Y %H:%M')}"
-    )
+    print()
 
-    print("=" * 55)
-
-
-    # ── Connect once ───────────────────────────
-
-    print("\nConnecting to AngelOne...")
+    print("Connecting to Angel One...")
 
     api = get_connection()
 
-    print("Connected ✅")
-
-
-    # ── Update all instruments ─────────────────
+    print("Angel One connected ✅")
 
     summary = []
 
@@ -543,36 +555,37 @@ def main():
 
         result = update_instrument(
             api,
-            instrument
+            instrument,
         )
 
         summary.append(result)
 
-        # Small rate-limit buffer
+        time.sleep(RATE_LIMIT_DELAY)
 
-        time.sleep(0.5)
+    finished_at = datetime.now()
 
-
-    # ── Summary ────────────────────────────────
-
-    print("\n" + "=" * 55)
-
-    print(
-        "UPDATE SUMMARY"
-    )
-
-    print("=" * 55)
+    print()
+    print("=" * 60)
+    print("UPDATE SUMMARY")
+    print("=" * 60)
 
     for item in summary:
 
         print(
-            f"  {item['instrument']:<20} "
-            f"{item['status']:<20} "
-            f"Added: {item['added']:<5} "
+            f"{item['instrument']:<20} | "
+            f"{item['status']:<20} | "
+            f"Added: {item['added']:<5} | "
             f"Latest: {item['latest']}"
         )
 
-    print("\nDone ✅")
+    print()
+
+    print(
+        "Finished: "
+        f"{finished_at.strftime('%d %b %Y %H:%M:%S')}"
+    )
+
+    print("Historical data update completed ✅")
 
 
 if __name__ == "__main__":
