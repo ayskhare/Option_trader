@@ -1,4 +1,3 @@
-````markdown
 # 📊 Option Trader
 
 A web-based dashboard and automation system for managing historical market data for the Option Trader project.
