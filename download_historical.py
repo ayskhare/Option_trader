@@ -269,7 +269,7 @@ def create_backup(
 
     name, extension = os.path.splitext(filename)
 
-    date_suffix = last_date.strftime("%d%b").lower()
+    date_suffix = last_date.strftime("%d%b%Y").lower()
 
     backup_filename = (
         f"{name}_{date_suffix}{extension}"
